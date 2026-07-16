@@ -34,6 +34,7 @@ import com.bobai.studio.ui.theme.BobSurface
  * horizontal drag on the duration chip stretches/shrinks how long that
  * still frame holds on screen.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChangeEditGrid(
     fragments: List<TimelineFragment>,
