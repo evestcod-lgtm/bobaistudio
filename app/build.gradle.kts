@@ -78,6 +78,7 @@ dependencies {
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.navigation:navigation-compose:2.7.7")
     debugImplementation("androidx.compose.ui:ui-tooling")
 
@@ -88,15 +89,14 @@ dependencies {
     implementation("androidx.media3:media3-transformer:1.4.0")
 
     // FFmpeg (video render: watermark blur/delogo, fragment replace, trims)
-    // NOTE: the official com.arthenica:ffmpeg-kit-full-gpl binaries were pulled
-    // from Maven Central on 2025-04-01 when upstream FFmpegKit was retired.
-    // io.github.xch168:ffmpeg-kit-full-gpl is a community-republished fat AAR
-    // of the same FFmpegKit 6.0 API/ABI, still live on Maven Central as of 2026.
-    // If this coordinate ever goes stale, swap in whatever fork is current —
-    // the Kotlin call sites in this project (FFmpegKit.execute / FFprobeKit...)
-    // will keep working unchanged since the API surface is identical.
+    // NOTE: upstream FFmpegKit (arthenica/ffmpeg-kit) was officially retired;
+    // GitHub now points to FFmpegKitNext, which ships source-only (no
+    // prebuilt Maven binaries). io.github.xch168:ffmpeg-kit-full-gpl:1.0.2
+    // is a real, currently-published "fat AAR" republish on Maven Central
+    // that bundles the classes + native .so libraries under the original
+    // com.arthenica.ffmpegkit package, so the Kotlin call sites in this
+    // project (FFmpegKit.executeAsync, ReturnCode, etc.) work unchanged.
     implementation("io.github.xch168:ffmpeg-kit-full-gpl:1.0.2")
-    implementation("com.arthenica:smart-exception-java:0.2.1")
 
     // Networking for Groq API (scene analysis / vision)
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
