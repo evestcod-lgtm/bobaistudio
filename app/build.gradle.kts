@@ -1,3 +1,10 @@
+// Restricts JavaCPP/FFmpeg native binaries to Android ABIs only — without
+// this, javacv-platform also pulls Linux/Windows/macOS/iOS desktop binaries
+// (multiple extra GB), which would make CI downloads extremely slow and
+// bloat local Gradle caches for no reason here. Must be set before the
+// dependencies block resolves, so it lives at the very top of the file.
+System.setProperty("javacpp.platform", "android-arm,android-arm64,android-x86,android-x86_64")
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -89,14 +96,19 @@ dependencies {
     implementation("androidx.media3:media3-transformer:1.4.0")
 
     // FFmpeg (video render: watermark blur/delogo, fragment replace, trims)
-    // NOTE: upstream FFmpegKit (arthenica/ffmpeg-kit) was officially retired;
-    // GitHub now points to FFmpegKitNext, which ships source-only (no
-    // prebuilt Maven binaries). io.github.xch168:ffmpeg-kit-full-gpl:1.0.2
-    // is a real, currently-published "fat AAR" republish on Maven Central
-    // that bundles the classes + native .so libraries under the original
-    // com.arthenica.ffmpegkit package, so the Kotlin call sites in this
-    // project (FFmpegKit.executeAsync, ReturnCode, etc.) work unchanged.
-    implementation("io.github.xch168:ffmpeg-kit-full-gpl:1.0.2")
+    // NOTE: upstream FFmpegKit (arthenica/ffmpeg-kit) is officially retired
+    // and its continuation (FFmpegKitNext) ships source-only, with no
+    // prebuilt Maven binaries — so no "install and forget" FFmpegKit
+    // coordinate can be trusted long-term in 2026. Instead this project uses
+    // org.bytedeco:javacv-platform, part of the actively maintained JavaCPP
+    // Presets project (new release as recently as Feb 2026), which bundles
+    // real prebuilt FFmpeg native binaries for Android (arm64-v8a,
+    // armeabi-v7a, x86, x86_64) and is resolved from plain Maven Central —
+    // no third-party republish risk. We call the extracted `ffmpeg` binary
+    // the same way FFmpegKit did (a full command-line argument list run via
+    // ProcessBuilder), which is why the *.kt call sites in this project stay
+    // close to their original FFmpegKit shape.
+    implementation("org.bytedeco:javacv-platform:1.5.13")
 
     // Networking for Groq API (scene analysis / vision)
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
