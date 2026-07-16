@@ -58,7 +58,19 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions { jvmTarget = "17" }
+    kotlinOptions {
+        jvmTarget = "17"
+        // Module-wide opt-in for Compose experimental APIs used across the
+        // app (e.g. Material3's TopAppBar). Avoids having to sprinkle
+        // @OptIn(...) on every individual composable that touches one of
+        // these — and prevents this class of "experimental API" compile
+        // error from recurring as new experimental APIs get used.
+        freeCompilerArgs += listOf(
+            "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
+            "-opt-in=androidx.compose.foundation.ExperimentalFoundationApi",
+            "-opt-in=androidx.compose.animation.ExperimentalAnimationApi"
+        )
+    }
 
     buildFeatures {
         compose = true
