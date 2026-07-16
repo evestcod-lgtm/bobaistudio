@@ -1,12 +1,11 @@
 package com.bobai.studio.editor
 
 import android.util.Log
-import com.arthenica.ffmpegkit.FFmpegKit
-import com.arthenica.ffmpegkit.ReturnCode
 import com.bobai.studio.data.FragmentSourceType
 import com.bobai.studio.data.TimelineFragment
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlin.coroutines.resume
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.bytedeco.javacpp.Loader
 
 sealed class ReplaceResult {
     data class Success(val fragment: TimelineFragment) : ReplaceResult()
@@ -26,6 +25,10 @@ sealed class ReplaceResult {
  *   to the fragment's duration (with a very subtle Ken-Burns zoom so a still
  *   photo doesn't look frozen/dead in a fast-cut edit — this can be disabled
  *   per-fragment).
+ *
+ * FFmpeg is invoked as a real command-line process extracted at runtime via
+ * JavaCPP (`org.bytedeco.ffmpeg.ffmpeg`), the actively maintained successor
+ * to the now-retired FFmpegKit.
  */
 class FragmentReplacer {
 
@@ -33,13 +36,13 @@ class FragmentReplacer {
         fragment: TimelineFragment,
         newSourcePath: String,
         workingDir: String
-    ): ReplaceResult {
+    ): ReplaceResult = withContext(Dispatchers.IO) {
         val targetDurationSec = fragment.durationMs / 1000.0
         val outputPath = "$workingDir/frag_${fragment.id}_replaced.mp4"
 
         // Trim (or, if shorter than needed, loop) the picked video so its
         // final length matches the slot it's filling on the timeline exactly.
-        val command = arrayOf(
+        val args = listOf(
             "-y",
             "-stream_loop", "-1",
             "-i", newSourcePath,
@@ -49,7 +52,7 @@ class FragmentReplacer {
             outputPath
         )
 
-        return runFFmpeg(command, fragment, outputPath, FragmentSourceType.VIDEO)
+        runFFmpeg(args, fragment, outputPath, FragmentSourceType.VIDEO)
     }
 
     suspend fun replaceWithImage(
@@ -57,7 +60,7 @@ class FragmentReplacer {
         newImagePath: String,
         workingDir: String,
         kenBurnsZoom: Boolean = true
-    ): ReplaceResult {
+    ): ReplaceResult = withContext(Dispatchers.IO) {
         val targetDurationSec = fragment.durationMs / 1000.0
         val outputPath = "$workingDir/frag_${fragment.id}_replaced.mp4"
         val fps = 30
@@ -71,7 +74,7 @@ class FragmentReplacer {
             "crop=1080:1920," +
             "zoompan=z='min($zoomExpr,1.15)':d=$totalFrames:s=1080x1920:fps=$fps"
 
-        val command = arrayOf(
+        val args = listOf(
             "-y",
             "-loop", "1",
             "-i", newImagePath,
@@ -81,18 +84,24 @@ class FragmentReplacer {
             outputPath
         )
 
-        return runFFmpeg(command, fragment, outputPath, FragmentSourceType.IMAGE)
+        runFFmpeg(args, fragment, outputPath, FragmentSourceType.IMAGE)
     }
 
-    private suspend fun runFFmpeg(
-        command: Array<String>,
+    private fun runFFmpeg(
+        args: List<String>,
         fragment: TimelineFragment,
         outputPath: String,
         newType: FragmentSourceType
-    ): ReplaceResult = suspendCancellableCoroutine { cont ->
-        val joined = command.joinToString(" ") { if (it.contains(" ")) "\"$it\"" else it }
-        FFmpegKit.executeAsync(joined) { session ->
-            if (ReturnCode.isSuccess(session.returnCode)) {
+    ): ReplaceResult {
+        return try {
+            val ffmpegBinary = Loader.load(org.bytedeco.ffmpeg.ffmpeg::class.java)
+            val process = ProcessBuilder(listOf(ffmpegBinary) + args)
+                .redirectErrorStream(true)
+                .start()
+            val log = process.inputStream.bufferedReader().readText()
+            val exitCode = process.waitFor()
+
+            if (exitCode == 0) {
                 val updated = fragment.copy(
                     sourceType = newType,
                     sourcePath = outputPath,
@@ -100,12 +109,14 @@ class FragmentReplacer {
                     trimEndMs = fragment.durationMs
                     // effects, orderIndex, id are untouched on purpose
                 )
-                cont.resume(ReplaceResult.Success(updated))
+                ReplaceResult.Success(updated)
             } else {
-                val logs = session.allLogsAsString
-                Log.e("FragmentReplacer", "Replace failed: $logs")
-                cont.resume(ReplaceResult.Failure(logs ?: "Unknown FFmpeg error"))
+                Log.e("FragmentReplacer", "FFmpeg exited with code $exitCode: $log")
+                ReplaceResult.Failure(log.take(500))
             }
+        } catch (e: Exception) {
+            Log.e("FragmentReplacer", "Failed to run FFmpeg", e)
+            ReplaceResult.Failure(e.message ?: "Unknown FFmpeg error")
         }
     }
 }
