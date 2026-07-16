@@ -1,6 +1,6 @@
-# FFmpegKit
--keep class com.arthenica.ffmpegkit.** { *; }
--dontwarn com.arthenica.ffmpegkit.**
+# JavaCV / JavaCPP (FFmpeg native binary loader)
+-keep class org.bytedeco.** { *; }
+-dontwarn org.bytedeco.**
 
 # Retrofit / OkHttp / Gson
 -keepattributes Signature
