@@ -1,0 +1,7 @@
+<resources>
+    <color name="bob_black">#0A0A0A</color>
+    <color name="bob_red">#FF2E2E</color>
+    <color name="bob_red_dark">#B30000</color>
+    <color name="bob_gray">#1C1C1E</color>
+    <color name="bob_cyan_accent">#37E5E5</color>
+</resources>
